@@ -21,6 +21,10 @@ class Client:
         self.deadline = 1 # < 0 for unlimited
         # TODO change upload time to upload spead (upload time = upload num / upload speed)
         self.device = device  # if device == none, it will use real time as train time and set upload time as 0
+        
+        # AdaComm: when num_epohcs is less than 1.0, this will mark the location that last training stops
+        self.train_mark = 0
+
         if self.device == None:
             logger.warn('client {} with no device init, upload time will be set as 0 and speed will be the gpu spped'.format(self.id))
             self.upload_time = 0
@@ -81,14 +85,26 @@ class Client:
         
         def train_with_simulate_time(self, num_epochs=1, batch_size=10, minibatch=None):
             train_speed = self.device.get_speed()
-            train_time = len(self.train_data['y'])/train_speed
+            train_time = int((len(self.train_data['y'])*num_epochs)/train_speed)
             logger.debug('clien {} train speed: {}, train time:{}'.format(self.id, train_speed, train_time))
             if train_time > train_time_limit:
                 raise timeout_decorator.timeout_decorator.TimeoutError('timeout')
             else :
                 if minibatch is None:
-                    data = self.train_data
-                    comp, update = self.model.train(data, num_epochs, batch_size)
+                    # AdaComm: non-randomlized minibatch
+                    if num_epochs < 1.0:
+                        data = {'x':[],'y':[]}
+                        num_data = max(1, int(num_epochs*len(self.train_data["x"])))
+                        while num_data > 0:
+                            data['x'].append(self.train_data['x'][self.train_mark])
+                            data['y'].append(self.train_data['y'][self.train_mark])
+                            self.train_mark += 1
+                            self.train_mark %= len(self.train_data)
+                            num_data -= 1
+                        comp, update, loss = self.model.train(data, 1, batch_size)  
+                    else:    
+                        data = self.train_data
+                        comp, update, loss = self.model.train(data, num_epochs, batch_size)
                 else:
                     frac = min(1.0, minibatch)
                     num_data = max(1, int(frac*len(self.train_data["x"])))
@@ -97,17 +113,17 @@ class Client:
 
                     # Minibatch trains for only 1 epoch - multiple local epochs don't make sense!
                     num_epochs = 1
-                    comp, update = self.model.train(data, num_epochs, num_data)
+                    comp, update, loss = self.model.train(data, num_epochs, num_data)
                 num_train_samples = len(data['y'])
                 simulate_time_c = train_time + self.upload_time
-                return simulate_time_c, comp, num_train_samples, update
+                return simulate_time_c, comp, num_train_samples, update, loss
         
         @timeout_decorator.timeout(train_time_limit)
         def train_with_real_time_limit(self, num_epochs=1, batch_size=10, minibatch=None):
             start_time = time.time()
             if minibatch is None:
                 data = self.train_data
-                comp, update = self.model.train(data, num_epochs, batch_size)
+                comp, update,loss = self.model.train(data, num_epochs, batch_size)
             else:
                 frac = min(1.0, minibatch)
                 num_data = max(1, int(frac*len(self.train_data["x"])))
@@ -116,10 +132,10 @@ class Client:
 
                 # Minibatch trains for only 1 epoch - multiple local epochs don't make sense!
                 num_epochs = 1
-                comp, update = self.model.train(data, num_epochs, num_data)
+                comp, update, loss = self.model.train(data, num_epochs, num_data)
             num_train_samples = len(data['y'])
             simulate_time_c = time.time() - start_time
-            return simulate_time_c, comp, num_train_samples, update
+            return simulate_time_c, comp, num_train_samples, update, loss
         
         if self.device == None:
             return train_with_real_time_limit(self, num_epochs, batch_size, minibatch)

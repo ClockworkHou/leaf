@@ -65,7 +65,12 @@ class Server:
                    LOCAL_COMPUTATIONS_KEY: 0} for c in clients}
         # for c in self.all_clients:
             # c.model.set_params(self.model)
+        
+        # variables for training statistics collecting
         simulate_time = 0
+        train_time = 0.0
+        avg_loss = 0.0
+        num = 0.0
         for c in clients:
             c.model.set_params(self.model)
             try:
@@ -73,7 +78,11 @@ class Server:
                 c.set_deadline(deadline)
                 # training
                 logger.debug('client {} starts training...'.format(c.id))
-                simulate_time_c, comp, num_samples, update = c.train(num_epochs, batch_size, minibatch)
+                simulate_time_c, comp, num_samples, update, tmp_loss = c.train(num_epochs, batch_size, minibatch)
+                # training statistics collecting
+                avg_loss += tmp_loss
+                train_time += simulate_time_c - c.upload_time
+                num += 1.0
                 logger.debug('client {} simulate_time: {}'.format(c.id, simulate_time_c))
                 if simulate_time_c > simulate_time:
                     simulate_time = simulate_time_c
@@ -90,7 +99,7 @@ class Server:
                 logger.error('client {} failed: {}'.format(c.id, e))
                 traceback.print_exc()
         logger.info('simulation time: {}'.format(simulate_time))
-        return sys_metrics
+        return sys_metrics, simulate_time, avg_loss/num, train_time/num
 
     def update_model(self, update_frac):
         logger.info('{} of {} clients upload successfully'.format(len(self.updates), len(self.selected_clients)))
@@ -106,7 +115,7 @@ class Server:
             for c in self.all_clients:
                 if c.id not in used_client_ids:
                     # c was not trained in this round
-                    params = c.model.get_params()
+                    params = self.model
                     total_weight += c.num_train_samples  # assume that all train_data is used to update
                     for i, v in enumerate(params):
                         base[i] += (c.num_train_samples * v.astype(np.float64))

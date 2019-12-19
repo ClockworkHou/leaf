@@ -6,6 +6,7 @@ import os
 import sys
 import random
 import time
+import json
 import eventlet
 import signal
 import tensorflow as tf
@@ -27,6 +28,9 @@ STAT_METRICS_PATH = 'metrics/stat_metrics.csv'
 SYS_METRICS_PATH = 'metrics/sys_metrics.csv'
 
 def main():
+    training_loss = []
+    training_time = []
+
     eventlet.monkey_patch()
     args = parse_args()
     
@@ -40,7 +44,7 @@ def main():
     logger = L.get_logger()
     
     # read config from file
-    cfg = Config()
+    cfg = Config(args.config_file)
 
     # Set the random seed if provided (affects client sampling, and batching)
     random.seed(1 + cfg.seed)
@@ -80,7 +84,7 @@ def main():
 
     # Create client model, and share params with server model
     tf.reset_default_graph()
-    client_model = ClientModel(cfg.seed, *model_params, cfg.gpu_fraction)
+    client_model = ClientModel(cfg.seed, *model_params)
 
     # Create clients
     clients = setup_clients(cfg, client_model)
@@ -129,8 +133,10 @@ def main():
         # 2. configuration stage
         logger.info('--------------------- configuration stage ---------------------')
         # 2.1 train(no parallel implementation)
-        sys_metrics = server.train_model(num_epochs=cfg.num_epochs, batch_size=cfg.batch_size, minibatch=cfg.minibatch, deadline = deadline)
+        sys_metrics, simulate_time, loss, train_time = server.train_model(num_epochs=cfg.num_epochs, batch_size=cfg.batch_size, minibatch=cfg.minibatch, deadline = deadline)
         sys_writer_fn(i + 1, c_ids, sys_metrics, c_groups, c_num_samples)
+        training_loss.append(loss)
+        training_time.append({"time":simulate_time, "train_time": train_time})
         '''
         try:
             signal.signal(signal.SIGINT, exit_handler)
@@ -175,6 +181,14 @@ def main():
 
     # Close models
     server.close_model()
+
+    json_timestamp = int(time.time())
+    filehandle = open("./json/bsln_training_loss_{}.json".format(json_timestamp),"w")
+    filehandle.write(json.dumps(training_loss))
+    filehandle.close()
+    filehandle = open("./json/bsln_training_time_{}.json".format(json_timestamp),"w")
+    filehandle.write(json.dumps(training_time))
+    filehandle.close()
 
 def online(clients):
     """We assume all users are always online."""

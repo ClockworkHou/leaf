@@ -1,6 +1,8 @@
 *.pyc
 .DS_Store
 .idea
+.vscode
+*.log
 build/
 data/*/data
 models/__pycache__/

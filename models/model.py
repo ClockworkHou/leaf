@@ -86,24 +86,32 @@ class Model(ABC):
                 corresponding to a variable in the resulting graph
         """
         for _ in range(num_epochs):
-            self.run_epoch(data, batch_size)
+            loss = self.run_epoch(data, batch_size)
+
 
         update = self.get_params()
         comp = num_epochs * (len(data['y'])//batch_size) * batch_size * self.flops
-        return comp, update
+        return comp, update, loss
 
     def run_epoch(self, data, batch_size):
+        num = 0.0
+        avg_loss = 0.0
         for batched_x, batched_y in batch_data(data, batch_size):
-            
+            num += 1.0 
             input_data = self.process_x(batched_x)
             target_data = self.process_y(batched_y)
             
             with self.graph.as_default():
-                self.sess.run(self.train_op,
+                train_res, tmp_loss = self.sess.run(
+                    [self.train_op,self.loss],
                     feed_dict={
                         self.features: input_data,
                         self.labels: target_data
                     })
+            avg_loss += tmp_loss
+        return avg_loss/num
+            
+        
 
     def test(self, data):
         """
