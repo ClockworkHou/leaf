@@ -95,11 +95,12 @@ class Client:
                     if num_epochs < 1.0:
                         data = {'x':[],'y':[]}
                         num_data = max(1, int(num_epochs*len(self.train_data["x"])))
+                        
                         while num_data > 0:
                             data['x'].append(self.train_data['x'][self.train_mark])
                             data['y'].append(self.train_data['y'][self.train_mark])
                             self.train_mark += 1
-                            self.train_mark %= len(self.train_data)
+                            self.train_mark %= len(self.train_data['x'])
                             num_data -= 1
                         comp, update, loss = self.model.train(data, 1, batch_size)  
                     else:    

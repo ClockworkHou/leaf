@@ -31,6 +31,7 @@ SYS_METRICS_PATH = 'metrics/sys_metrics.csv'
 def main():
     training_loss = []
     training_time = []
+    training_num_epochs = []
 
     eventlet.monkey_patch()
     args = parse_args()
@@ -132,6 +133,7 @@ def main():
         # 1.1.5 decide num_epochs and deadline's μ
         # AdaComm: deadline and num_epoches decided by CommAdapter
         cfg.num_epochs, cfg.round_ddl[0] = adapter.adapt()
+        training_num_epochs.append(cfg.num_epochs)
         
         # 1.2 decide deadline for each client
         deadline = np.random.normal(cfg.round_ddl[0], cfg.round_ddl[1])
@@ -202,6 +204,9 @@ def main():
     filehandle.close()
     filehandle = open("./json/ada_training_time_{}.json".format(json_timestamp),"w")
     filehandle.write(json.dumps(training_time))
+    filehandle.close()
+    filehandle = open("./json/ada_training_num_epochs_{}.json".format(json_timestamp),"w")
+    filehandle.write(json.dumps(training_num_epochs))
     filehandle.close()
 
 def online(clients):

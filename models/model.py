@@ -86,7 +86,10 @@ class Model(ABC):
                 corresponding to a variable in the resulting graph
         """
         for _ in range(num_epochs):
-            loss = self.run_epoch(data, batch_size)
+            if _ == 0:
+                loss = self.run_epoch(data, batch_size)
+            else:
+                self.run_epoch(data, batch_size)
 
 
         update = self.get_params()
@@ -108,7 +111,7 @@ class Model(ABC):
                         self.features: input_data,
                         self.labels: target_data
                     })
-            avg_loss += tmp_loss
+                avg_loss += tmp_loss
         return avg_loss/num
             
         
