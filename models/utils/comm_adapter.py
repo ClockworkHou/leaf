@@ -10,7 +10,7 @@ logger = L.get_logger()
 
 # Adapt communication interval after a fixed period
 class CommAdapter():
-	def __init__(self, cfg: Config, _interval = 100, _min_ddl = 15):
+	def __init__(self, cfg: Config, _interval = 50, _min_ddl = 15):
 		self.timer = 0
 		self.interval = _interval*cfg.round_ddl[0]
 		self.num_epochs = cfg.num_epochs
