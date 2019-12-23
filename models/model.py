@@ -112,7 +112,11 @@ class Model(ABC):
                         self.labels: target_data
                     })
                 avg_loss += tmp_loss
-        return avg_loss/num
+        if num == 0:
+            print("Unexpected behavior: no training data")
+            return 0
+        else:
+            return avg_loss/num
             
         
 
