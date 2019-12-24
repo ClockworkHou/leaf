@@ -198,6 +198,10 @@ def main():
     # Close models
     server.close_model()
 
+    # Save trainging statistics
+    if not os.path.exists('./json'):
+        os.mkdir('./json')
+
     json_timestamp = int(time.time())
     filehandle = open("./json/ada_training_loss_{}.json".format(json_timestamp),"w")
     filehandle.write(json.dumps(training_loss))
